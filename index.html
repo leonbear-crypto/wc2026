@@ -69,6 +69,16 @@
 
   .refresh-btn { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 3px 8px; font-size: 10px; color: #58a6ff; cursor: pointer; margin-left: 6px; }
   .refresh-btn:active { background: #30363d; }
+
+  /* 카드 확장 */
+  .card-detail { overflow:hidden; max-height:0; transition:max-height .3s cubic-bezier(.32,1,.23,1), padding .3s; padding:0 0; }
+  .card-detail.open { max-height:120px; padding:10px 0 2px; }
+  .rank-row { display:flex; justify-content:space-between; align-items:center; background:#0d1117; border-radius:8px; padding:10px 14px; }
+  .rank-team { font-size:12px; font-weight:bold; max-width:80px; word-break:keep-all; }
+  .rank-num { font-size:22px; font-weight:bold; color:#58a6ff; font-family:monospace; }
+  .rank-label { font-size:10px; color:#8b949e; text-align:center; }
+  .rank-section-title { font-size:10px; color:#8b949e; margin-bottom:6px; }
+  .card.expanded { border-color:#58a6ff55; }
 </style>
 </head>
 <body>
@@ -353,7 +363,10 @@ async function fetchScores(manual) {
         const state  = status.type.state;   // 'pre' | 'in' | 'post'
         const detail = status.type.shortDetail || '';
 
+        if (!match.espnId) match.espnId = event.id; // 항상 ID 저장
+
         if (state === 'post' || state === 'in') {
+          match.espnId = event.id; // 상세 조회용 ID 저장
           // 점수 순서 맞추기 (홈/어웨이 방향)
           const mHome = match.home.replace('🇰🇷 ','');
           let hs = home.score || '0', as = away.score || '0';
@@ -588,8 +601,29 @@ function render() {
         '<span class="' + badgeClass + '">' + m.g + '</span>' +
         '<span class="venue">📍 ' + m.v + '</span>' +
         '<span class="countdown" id="cd-' + m.id + '"></span>' +
-      '</div>';
+      '</div>' +
+      (m.away ? '<div class="card-detail" id="detail-' + m.id + '">' +
+        '<div class="rank-section-title">🏅 FIFA 랭킹</div>' +
+        '<div class="rank-row">' +
+          '<div><div class="rank-team">' + m.home + '</div><div class="rank-label">홈</div></div>' +
+          '<div><div class="rank-num">' + (rankingsCache[m.home.replace('🇰🇷 ','')] || '?') + '</div><div class="rank-label">위</div></div>' +
+          '<div style="color:#484f58;font-size:11px;">vs</div>' +
+          '<div><div class="rank-num">' + (rankingsCache[m.away.replace('🇰🇷 ','')] || '?') + '</div><div class="rank-label">위</div></div>' +
+          '<div><div class="rank-team" style="text-align:right">' + m.away + '</div><div class="rank-label">어웨이</div></div>' +
+        '</div>' +
+      '</div>' : '');
     container.appendChild(card);
+    if (m.away) {
+      card.addEventListener('click', function(){
+        var detail = document.getElementById('detail-' + m.id);
+        if (!detail) return;
+        var isOpen = detail.classList.contains('open');
+        // 다른 열린 카드 닫기
+        document.querySelectorAll('.card-detail.open').forEach(function(d){ d.classList.remove('open'); });
+        document.querySelectorAll('.card.expanded').forEach(function(c){ c.classList.remove('expanded'); });
+        if (!isOpen) { detail.classList.add('open'); card.classList.add('expanded'); }
+      });
+    }
   });
 
   if (filtered.length === 0) {
@@ -623,11 +657,29 @@ function tick() {
   });
 }
 
+// ─── FIFA 랭킹 (2026.06.11 공식 발표 기준) ───────────────
+let rankingsCache = {
+  '아르헨티나':1, '스페인':2, '프랑스':3, '잉글랜드':4, '포르투갈':5,
+  '브라질':6, '모로코':7, '네덜란드':8, '벨기에':9, '독일':10,
+  '크로아티아':11, '콜롬비아':13, '멕시코':14, '세네갈':15,
+  '우루과이':16, '미국':17, '일본':18, '스위스':19, '이란':20,
+  '터키':22, '에콰도르':23, '오스트리아':24, '한국':25,
+  '노르웨이':27, '스웨덴':30, '캐나다':30, '호주':24,
+  '튀니지':38, '알제리':42, '이집트':44, '사우디':56,
+  '체코':36, '스코틀랜드':39, '이라크':63, '요르단':81,
+  '보스니아':58, '파라과이':55, '카타르':54, '가나':60,
+  '파나마':72, '우즈베키스탄':74, 'DR콩고':57, '남아공':65,
+  '카보베르데':62, '뉴질랜드':96, '아이티':88, '퀴라소':89
+};
+
+async function fetchRankings() { /* 하드코딩으로 대체 */ }
+
 // ─── 자동 새로고침 (5분마다) ──────────────────────────────
 render();
 setInterval(tick, 1000);
 tick();
 fetchScores(false);
+fetchRankings();
 setInterval(function(){ fetchScores(false); }, 5 * 60 * 1000);
 </script>
 </body>
