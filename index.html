@@ -6,96 +6,111 @@
 <title>⚽ 2026 월드컵 일정</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; }
+  body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: #07112b; color: #e8edf5; min-height: 100vh; }
 
-  header { background: #010409; padding: 16px; text-align: center; border-bottom: 1px solid #21262d; position: sticky; top: 0; z-index: 100; }
-  header h1 { font-size: 17px; color: #58a6ff; margin-bottom: 2px; }
-  header p  { font-size: 11px; color: #8b949e; }
+  header {
+    background: linear-gradient(160deg, #0a1e4a 0%, #07112b 100%);
+    padding: 16px; text-align: center;
+    border-bottom: 1px solid rgba(211,170,60,.2);
+    position: sticky; top: 0; z-index: 100;
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(211,170,60,.10) 0%, transparent 65%);
+    pointer-events: none;
+  }
+  header h1 { font-size: 17px; color: #fff; margin-bottom: 2px; position: relative; z-index: 1; }
+  header h1 span { color: #d3aa3c; }
+  header p  { font-size: 11px; color: #4a6080; position: relative; z-index: 1; }
 
-  .toolbar { display: flex; gap: 6px; padding: 10px 10px 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .toolbar { display: flex; gap: 6px; padding: 10px 10px 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; background: #07112b; border-bottom: 1px solid rgba(255,255,255,.05); }
   .toolbar::-webkit-scrollbar { display: none; }
-  .chip { background: #161b22; border: 1px solid #30363d; border-radius: 20px; padding: 5px 12px; font-size: 12px; color: #8b949e; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
-  .chip.active { background: #1f6feb; border-color: #1f6feb; color: white; }
+  .chip { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.07); border-radius: 20px; padding: 5px 12px; font-size: 12px; color: #4a6080; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
+  .chip.active { background: linear-gradient(135deg,#d3aa3c,#f0cc5a); border-color: transparent; color: #07112b; font-weight: 700; }
 
-  .date-header { background: #161b22; padding: 8px 12px; font-size: 12px; font-weight: bold; color: #58a6ff; border-left: 3px solid #58a6ff; margin: 8px 10px 4px; border-radius: 0 6px 6px 0; }
-  .date-header.knockout { border-left-color: #f0883e; color: #f0883e; }
+  .date-header { background: rgba(211,170,60,.07); padding: 8px 12px; font-size: 12px; font-weight: bold; color: #d3aa3c; border-left: 2px solid #d3aa3c; margin: 8px 10px 4px; border-radius: 0 6px 6px 0; }
+  .date-header.knockout { border-left-color: #f0883e; color: #f0883e; background: rgba(240,136,62,.07); }
 
   .list { padding: 0 10px 100px; }
 
-  .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 12px 14px; margin-bottom: 6px; }
-  .card.past  { opacity: 0.5; }
-  .card.live  { border-color: #ff6b6b; opacity: 1 !important; }
+  .card { background: linear-gradient(145deg, #0d1e40 0%, #091530 100%); border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 12px 14px; margin-bottom: 6px; position: relative; overflow: hidden; }
+  .card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background: linear-gradient(90deg, transparent, rgba(211,170,60,.25), transparent); pointer-events:none; }
+  .card.past  { opacity: 0.45; }
+  .card.live  { border-color: rgba(248,81,73,.45); }
+  .card.live::before { background: linear-gradient(90deg, transparent, rgba(248,81,73,.45), transparent); }
   .card.hidden { display: none; }
 
   .card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .teams { font-size: 15px; font-weight: bold; flex: 1; }
 
   .time-badge { text-align: right; flex-shrink: 0; }
-  .time-big { font-size: 16px; font-weight: bold; color: #3fb950; font-family: monospace; }
-  .date-small { font-size: 10px; color: #8b949e; }
+  .time-big { font-size: 16px; font-weight: bold; color: #d3aa3c; font-family: monospace; }
+  .date-small { font-size: 10px; color: #4a6080; }
 
   .score-box { text-align: center; padding: 4px 10px; border-radius: 6px; flex-shrink: 0; }
-  .score-box.ft { background: #1c2a1c; }
-  .score-box.live-score { background: #2a1c1c; animation: pulse 1.5s infinite; }
-  .score-num { font-size: 18px; font-weight: bold; color: #e6edf3; font-family: monospace; letter-spacing: 2px; }
-  .score-label { font-size: 9px; color: #8b949e; margin-top: 1px; }
-  .score-label.live-label { color: #ff6b6b; font-weight: bold; }
+  .score-box.ft { background: rgba(211,170,60,.08); }
+  .score-box.live-score { background: rgba(248,81,73,.12); animation: pulse 1.5s infinite; }
+  .score-num { font-size: 18px; font-weight: bold; color: #fff; font-family: monospace; letter-spacing: 2px; }
+  .score-label { font-size: 9px; color: #4a6080; margin-top: 1px; }
+  .score-label.live-label { color: #f85149; font-weight: bold; }
 
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
 
   .card-bottom { display: flex; align-items: center; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
   .badge { border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold; }
-  .badge.group   { background: #1f3a5f; color: #58a6ff; }
-  .badge.ko      { background: #4a1a00; color: #f0883e; }
-  .venue { font-size: 10px; color: #8b949e; }
+  .badge.group   { background: rgba(211,170,60,.12); color: #d3aa3c; border: 1px solid rgba(211,170,60,.2); }
+  .badge.ko      { background: rgba(240,136,62,.12); color: #f0883e; border: 1px solid rgba(240,136,62,.2); }
+  .venue { font-size: 10px; color: #2e4a6a; }
 
-  .group-table { margin: 4px 0 8px; border-radius: 8px; overflow: hidden; border: 1px solid #30363d; font-size: 11px; }
+  .group-table { margin: 4px 0 8px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,.07); font-size: 11px; }
   .group-table table { width: 100%; border-collapse: collapse; }
-  .group-table th { background: #0d1117; padding: 5px 8px; color: #8b949e; text-align: left; font-weight: normal; }
-  .group-table td { padding: 5px 8px; border-top: 1px solid #21262d; }
-  .group-table tr.advance td { background: #0f1e10; }
-  .group-table .rank { color: #8b949e; width: 16px; }
-  .group-table .pts  { font-weight: bold; color: #3fb950; }
-  .group-table .pending { color: #484f58; font-style: italic; font-size: 10px; padding: 6px 8px; }
-  .countdown { font-size: 11px; color: #00d2ff; font-family: monospace; margin-left: auto; }
-  .countdown.soon { color: #ff6b6b; font-weight: bold; }
-  .countdown.done { color: #484f58; }
+  .group-table th { background: rgba(0,0,0,.3); padding: 5px 8px; color: #4a6080; text-align: left; font-weight: normal; }
+  .group-table td { padding: 5px 8px; border-top: 1px solid rgba(255,255,255,.05); }
+  .group-table tr.advance td { background: rgba(211,170,60,.05); }
+  .group-table .rank { color: #4a6080; width: 16px; }
+  .group-table .pts  { font-weight: bold; color: #d3aa3c; }
+  .group-table .pending { color: #2e4a6a; font-style: italic; font-size: 10px; padding: 6px 8px; }
+  .countdown { font-size: 11px; color: #d3aa3c; font-family: monospace; margin-left: auto; opacity: .8; }
+  .countdown.soon { color: #f85149; font-weight: bold; opacity: 1; }
+  .countdown.done { color: #2e4a6a; }
 
-  .statusbar { position: fixed; bottom: 0; left: 0; right: 0; background: #010409; border-top: 1px solid #21262d; padding: 10px 14px; display: flex; justify-content: space-between; font-size: 12px; color: #8b949e; }
-  #clock { font-family: monospace; color: #3fb950; }
-  #sync-status { font-size: 10px; color: #484f58; }
+  .statusbar { position: fixed; bottom: 0; left: 0; right: 0; background: #07112b; border-top: 1px solid rgba(211,170,60,.15); padding: 10px 14px; display: flex; justify-content: space-between; font-size: 12px; color: #4a6080; }
+  #clock { font-family: monospace; color: #d3aa3c; }
+  #sync-status { font-size: 10px; color: #2e4a6a; }
 
-  .korea-tag { font-size: 10px; background: #1a237e; color: #79b8ff; border-radius: 4px; padding: 1px 5px; }
+  .korea-tag { font-size: 10px; background: rgba(211,170,60,.15); color: #d3aa3c; border-radius: 4px; padding: 1px 5px; }
 
-  .refresh-btn { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 3px 8px; font-size: 10px; color: #58a6ff; cursor: pointer; margin-left: 6px; }
-  .refresh-btn:active { background: #30363d; }
+  .refresh-btn { background: rgba(255,255,255,.06); border: 1px solid rgba(211,170,60,.25); border-radius: 6px; padding: 3px 8px; font-size: 10px; color: #d3aa3c; cursor: pointer; margin-left: 6px; }
+  .refresh-btn:active { background: rgba(211,170,60,.15); }
 
   /* 카드 확장 */
   .card-detail { overflow:hidden; max-height:0; transition:max-height .3s cubic-bezier(.32,1,.23,1), padding .3s; padding:0 0; }
   .card-detail.open { max-height:240px; padding:10px 0 2px; }
-  .rank-row { display:flex; justify-content:space-between; align-items:center; background:#0d1117; border-radius:8px; padding:10px 14px; }
+  .rank-row { display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,.3); border-radius:8px; padding:10px 14px; }
   .rank-team { font-size:12px; font-weight:bold; max-width:80px; word-break:keep-all; }
-  .rank-num { font-size:22px; font-weight:bold; color:#58a6ff; font-family:monospace; }
-  .rank-label { font-size:10px; color:#8b949e; text-align:center; }
-  .rank-section-title { font-size:10px; color:#8b949e; margin-bottom:6px; }
-  .card.expanded { border-color:#58a6ff55; }
+  .rank-num { font-size:22px; font-weight:bold; color:#d3aa3c; font-family:monospace; }
+  .rank-label { font-size:10px; color:#4a6080; text-align:center; }
+  .rank-section-title { font-size:10px; color:#4a6080; margin-bottom:6px; }
+  .card.expanded { border-color:rgba(211,170,60,.4); }
   .prob-bar { margin-top:10px; }
-  .prob-labels { display:flex; justify-content:space-between; font-size:11px; color:#8b949e; margin-bottom:4px; }
-  .prob-track { display:flex; height:8px; border-radius:4px; overflow:hidden; }
-  .prob-h { background:#3fb950; }
-  .prob-d { background:#484f58; }
-  .prob-a { background:#f85149; }
+  .prob-labels { display:flex; justify-content:space-between; font-size:11px; color:#4a6080; margin-bottom:4px; }
+  .prob-track { display:flex; height:6px; border-radius:3px; overflow:hidden; }
+  .prob-h { background:linear-gradient(90deg,#d3aa3c,#f0cc5a); }
+  .prob-d { background:rgba(255,255,255,.1); }
+  .prob-a { background:rgba(248,81,73,.6); }
   .prob-nums { display:flex; justify-content:space-between; font-size:12px; font-weight:bold; font-family:monospace; margin-top:4px; }
-  .prob-hn { color:#3fb950; }
-  .prob-dn { color:#8b949e; text-align:center; flex:1; }
+  .prob-hn { color:#d3aa3c; }
+  .prob-dn { color:#2e4a6a; text-align:center; flex:1; }
   .prob-an { color:#f85149; }
 </style>
 </head>
 <body>
 
 <header style="position:relative">
-  <button id="winprob-btn" onclick="toggleWinProb(this)" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:#161b22;border:1px solid #30363d;border-radius:20px;padding:5px 10px;font-size:11px;color:#8b949e;cursor:pointer;white-space:nowrap">🏆 우승확률</button>
-  <h1>⚽ 2026 FIFA 월드컵</h1>
+  <button id="winprob-btn" onclick="toggleWinProb(this)" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(211,170,60,.12);border:1px solid rgba(211,170,60,.35);border-radius:20px;padding:5px 10px;font-size:11px;color:#d3aa3c;cursor:pointer;white-space:nowrap;z-index:1">🏆 우승확률</button>
+  <h1>⚽ <span>2026 FIFA</span> 월드컵</h1>
   <p>전체 104경기 · KST 기준 <button class="refresh-btn" onclick="fetchScores(true);startRefreshTimer()">🔄 새로고침</button></p>
 </header>
 
@@ -970,7 +985,7 @@ function renderWinProbTab(counts, done, total, allTeams) {
   results.forEach(function(item, idx) {
     var isKorea = (item.team === '한국');
     var barW = (item.prob / maxProb * 100).toFixed(1);
-    var probColor = item.prob >= 10 ? '#3fb950' : item.prob >= 1 ? '#8b949e' : '#484f58';
+    var probColor = item.prob >= 10 ? '#d3aa3c' : item.prob >= 1 ? '#8b949e' : '#2e4a6a';
 
     html += '<div style="display:flex;align-items:center;padding:7px 14px;border-bottom:1px solid #21262d;gap:8px;">' +
       '<div style="width:20px;text-align:right;font-size:11px;color:#484f58;font-family:monospace">' + (idx+1) + '</div>' +
@@ -993,17 +1008,17 @@ function toggleWinProb(btn) {
   var isActive = curFilter === 'WINPROB';
   if (isActive) {
     // 원래 전체 뷰로 복귀
-    btn.style.background = '#161b22';
-    btn.style.borderColor = '#30363d';
-    btn.style.color = '#8b949e';
+    btn.style.background = 'rgba(211,170,60,.12)';
+    btn.style.borderColor = 'rgba(211,170,60,.35)';
+    btn.style.color = '#d3aa3c';
     document.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('active'); });
     document.querySelector('.chip').classList.add('active'); // 전체 chip
     curFilter = '';
     render();
   } else {
-    btn.style.background = '#1f6feb';
-    btn.style.borderColor = '#1f6feb';
-    btn.style.color = 'white';
+    btn.style.background = 'linear-gradient(135deg,#d3aa3c,#f0cc5a)';
+    btn.style.borderColor = 'transparent';
+    btn.style.color = '#07112b';
     document.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('active'); });
     curFilter = 'WINPROB';
     filterWinProb();
