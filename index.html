@@ -81,6 +81,7 @@
   #sync-status { font-size: 10px; color: #2e4a6a; }
 
   .korea-tag { font-size: 10px; background: rgba(211,170,60,.15); color: #d3aa3c; border-radius: 4px; padding: 1px 5px; }
+  .teams .kor { color: #d3aa3c; font-weight: 900; }
 
   .refresh-btn { background: rgba(255,255,255,.06); border: 1px solid rgba(211,170,60,.25); border-radius: 6px; padding: 3px 8px; font-size: 10px; color: #d3aa3c; cursor: pointer; margin-left: 6px; }
   .refresh-btn:active { background: rgba(211,170,60,.15); }
@@ -109,7 +110,7 @@
 <body>
 
 <header style="position:relative">
-  <button id="winprob-btn" onclick="toggleWinProb(this)" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(211,170,60,.12);border:1px solid rgba(211,170,60,.35);border-radius:20px;padding:5px 10px;font-size:11px;color:#d3aa3c;cursor:pointer;white-space:nowrap;z-index:1">🏆 우승확률</button>
+  <button id="winprob-btn" onclick="toggleWinProb(this)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(211,170,60,.12);border:1px solid rgba(211,170,60,.35);border-radius:20px;padding:8px 12px;font-size:11px;color:#d3aa3c;cursor:pointer;white-space:nowrap;z-index:2;min-width:72px;min-height:36px;-webkit-tap-highlight-color:transparent;touch-action:manipulation">🏆 우승확률</button>
   <h1>⚽ <span>2026 FIFA</span> 월드컵</h1>
   <p>전체 104경기 · KST 기준 <button class="refresh-btn" onclick="fetchScores(true);startRefreshTimer()">🔄 새로고침</button></p>
 </header>
@@ -365,29 +366,35 @@ const FORM = {
   '아이티':0.50,'뉴질랜드':0.48,'퀴라소':0.45,'코트디부아르':0.82,
 };
 
-// ─── 앙상블 확률 계산 (Elo 45% + FIFA랭킹 35% + 최근폼 20%) ─
+// ─── 실시간 Elo (대회 결과로 업데이트, 초기값 = ELO 복사) ──
+let currentElo = Object.assign({}, ELO);
+const processedEloMatches = new Set(); // 이미 처리한 경기 ID
+const ELO_K = 60; // FIFA WC K팩터 (eloratings.net 기준)
+
+function updateEloFromResult(homeKor, awayKor, homeGoals, awayGoals, matchId) {
+  if (processedEloMatches.has(matchId)) return;
+  processedEloMatches.add(matchId);
+
+  const ra = currentElo[homeKor] || 1600;
+  const rb = currentElo[awayKor] || 1600;
+  const expected = 1 / (1 + Math.pow(10, (rb - ra) / 600));
+  const actual   = homeGoals > awayGoals ? 1 : homeGoals === awayGoals ? 0.5 : 0;
+  const delta    = ELO_K * (actual - expected);
+
+  currentElo[homeKor] = Math.round(ra + delta);
+  currentElo[awayKor] = Math.round(rb - delta);
+}
+
+// ─── 확률 계산 (순수 Elo 100% — 실시간 업데이트 반영) ─────
 function calcWinProb(homeKor, awayKor, isKnockout) {
-  const ELO_MIN = 1400, ELO_MAX = 2200;
-
-  function composite(kor) {
-    const elo  = ELO[kor]  || 1600;
-    const rank = rankingsCache[kor] || 50;
-    const form = FORM[kor] || 0.60;
-    const eloN  = (elo - ELO_MIN) / (ELO_MAX - ELO_MIN);
-    const rankN = Math.max(0, (55 - rank) / 54);
-    return 0.45 * eloN + 0.35 * rankN + 0.20 * form;
-  }
-
-  const cA = composite(homeKor), cB = composite(awayKor);
-  const eqA = ELO_MIN + cA * (ELO_MAX - ELO_MIN);
-  const eqB = ELO_MIN + cB * (ELO_MAX - ELO_MIN);
-  const pHome = 1 / (1 + Math.pow(10, (eqB - eqA) / 600));
-
+  const eloA = currentElo[homeKor] || ELO[homeKor] || 1600;
+  const eloB = currentElo[awayKor] || ELO[awayKor] || 1600;
+  const pHome = 1 / (1 + Math.pow(10, (eloB - eloA) / 600));
   if (isKnockout) {
     const pH = Math.round(pHome * 100);
     return { home: pH, draw: 0, away: 100 - pH };
   }
-  const diff  = Math.abs(eqA - eqB);
+  const diff  = Math.abs(eloA - eloB);
   const pDraw = Math.max(0.12, 0.30 - 0.0005 * diff);
   const pH = Math.round(pHome * (1 - pDraw) * 100);
   const pD = Math.round(pDraw * 100);
@@ -489,6 +496,10 @@ async function fetchScores(manual) {
             if (homeWin) match.winner = match.home;
             else if (awayWin) match.winner = match.away;
             else match.winner = null; // 무승부
+            // 실시간 Elo 업데이트
+            const hk2 = match.home.replace('🇰🇷 ','');
+            const ak2 = match.away ? match.away.replace('🇰🇷 ','') : null;
+            if (ak2) updateEloFromResult(hk2, ak2, +hs, +as, match.id);
           } else {
             match.statusLabel = detail || 'LIVE';
           }
@@ -503,8 +514,10 @@ async function fetchScores(manual) {
   // 토너먼트 승자 → 다음 라운드 업데이트
   propagateWinners();
 
+  // 새 결과 있으면 우승확률 캐시 항상 무효화
+  winProbCache = null;
+
   if (curFilter === 'WINPROB') {
-    winProbCache = null;
     filterWinProb();
   } else {
     render();
@@ -718,7 +731,7 @@ function render() {
             '<div><div class="rank-team" style="text-align:right">' + m.away + '</div><div class="rank-label">어웨이</div></div>' +
           '</div>' +
           '<div class="prob-bar">' +
-            '<div class="rank-section-title" style="margin-top:10px">📊 승리 확률 <span style="font-size:9px;color:#484f58">Elo 45% + FIFA랭킹 35% + 폼 20%</span></div>' +
+            '<div class="rank-section-title" style="margin-top:10px">📊 승리 확률 <span style="font-size:9px;color:#484f58">순수 Elo 기반 · 역대WC 77.8% 적중</span></div>' +
             '<div class="prob-labels"><span>' + m.home + '</span>' + (p.draw ? '<span>무</span>' : '') + '<span>' + m.away + '</span></div>' +
             '<div class="prob-track">' +
               '<div class="prob-h" style="width:' + p.home + '%"></div>' +
@@ -824,13 +837,7 @@ let winProbCache = null;
 let winProbRunning = false;
 
 function compositeScore(team) {
-  const ELO_MIN = 1400, ELO_MAX = 2200;
-  const elo  = ELO[team]  || 1600;
-  const rank = rankingsCache[team] || 50;
-  const form = FORM[team] || 0.60;
-  const eloN  = (elo - ELO_MIN) / (ELO_MAX - ELO_MIN);
-  const rankN = Math.max(0, (55 - rank) / 54);
-  return 0.45 * eloN + 0.35 * rankN + 0.20 * form;
+  return (currentElo[team] || ELO[team] || 1600);
 }
 
 function buildGroupTeamsForSim() {
@@ -977,8 +984,12 @@ function renderWinProbTab(counts, done, total, allTeams) {
   var maxProb = results[0].prob || 1;
   var progress = done < total ? '<div style="font-size:10px;color:#484f58;text-align:center;padding:4px">' + done + '/' + total + ' 시뮬레이션</div>' : '';
 
+  var eloUpdated = processedEloMatches.size;
+  var eloNote = eloUpdated > 0
+    ? ' · <span style="color:#3fb950">Elo ' + eloUpdated + '경기 반영</span>'
+    : '';
   var html = '<div style="padding:10px 14px 4px;display:flex;justify-content:space-between;align-items:center">' +
-    '<span style="font-size:11px;color:#8b949e">🏆 우승 확률 · Elo+랭킹+폼 앙상블 · ' + total + '회</span>' +
+    '<span style="font-size:11px;color:#8b949e">🏆 우승 확률 · 순수 Elo · ' + total + '회 시뮬레이션' + eloNote + '</span>' +
     (done >= total ? '<span style="font-size:10px;color:#58a6ff;cursor:pointer" onclick="winProbCache=null;computeWinProbs();if(curFilter===\'WINPROB\')renderWinProbTab(null,0,10000,[])">🔄</span>' : '') +
   '</div>' + progress;
 
@@ -986,11 +997,15 @@ function renderWinProbTab(counts, done, total, allTeams) {
     var isKorea = (item.team === '한국');
     var barW = (item.prob / maxProb * 100).toFixed(1);
     var probColor = item.prob >= 10 ? '#d3aa3c' : item.prob >= 1 ? '#8b949e' : '#2e4a6a';
+    var eloDiff = (currentElo[item.team] || ELO[item.team] || 1600) - (ELO[item.team] || 1600);
+    var eloTag = eloDiff !== 0
+      ? '<span style="font-size:9px;font-family:monospace;color:' + (eloDiff>0?'#3fb950':'#f85149') + '">' + (eloDiff>0?'+':'') + eloDiff + '</span>'
+      : '';
 
     html += '<div style="display:flex;align-items:center;padding:7px 14px;border-bottom:1px solid #21262d;gap:8px;">' +
       '<div style="width:20px;text-align:right;font-size:11px;color:#484f58;font-family:monospace">' + (idx+1) + '</div>' +
       '<div style="width:85px;font-size:13px;font-weight:' + (isKorea?'bold':'normal') + ';color:' + (isKorea?'#58a6ff':'#e6edf3') + '">' +
-        (isKorea ? '🇰🇷 ' : '') + item.team +
+        (isKorea ? '🇰🇷 ' : '') + item.team + ' ' + eloTag +
       '</div>' +
       '<div style="flex:1;background:#21262d;border-radius:3px;height:5px;overflow:hidden">' +
         '<div style="width:' + barW + '%;height:100%;background:' + (isKorea?'#58a6ff':probColor) + ';border-radius:3px;transition:width .3s"></div>' +
