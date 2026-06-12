@@ -597,7 +597,9 @@ function render() {
   filtered.forEach(function(m) {
     const dt   = parseKST(m.d, m.t);
     const past = dt < now;
-    const isLive = m.statusLabel && m.statusLabel !== 'FT';
+    const minElapsed = (now - dt) / 60000;
+    const estimatedLive = past && minElapsed < 120 && !m.score;
+    const isLive = (m.statusLabel && m.statusLabel !== 'FT') || estimatedLive;
     const isKO = KO.includes(m.g);
 
     const dateLabel = dt.toLocaleDateString("ko-KR", {month:"numeric", day:"numeric", weekday:"short"});
@@ -704,8 +706,19 @@ function tick() {
     const dt  = parseKST(m.d, m.t);
     const sec = (dt - now) / 1000;
     if (sec <= 0) {
-      if (!m.score) { el.textContent = "종료"; el.className = "countdown done"; }
-      else el.textContent = "";
+      if (m.score && m.statusLabel === 'FT') {
+        el.textContent = ""; el.className = "countdown done";
+      } else if (m.statusLabel && m.statusLabel !== 'FT') {
+        el.textContent = "🔴 " + m.statusLabel; el.className = "countdown soon";
+      } else {
+        // 시작 후 120분 이내 → 경기중 추정
+        const minElapsed = (-sec) / 60;
+        if (minElapsed < 120) {
+          el.textContent = "🔴 경기중"; el.className = "countdown soon";
+        } else {
+          el.textContent = m.score ? "" : "종료"; el.className = "countdown done";
+        }
+      }
       return;
     }
     const d = Math.floor(sec/86400), h = Math.floor((sec%86400)/3600),
