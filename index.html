@@ -72,13 +72,23 @@
 
   /* 카드 확장 */
   .card-detail { overflow:hidden; max-height:0; transition:max-height .3s cubic-bezier(.32,1,.23,1), padding .3s; padding:0 0; }
-  .card-detail.open { max-height:120px; padding:10px 0 2px; }
+  .card-detail.open { max-height:200px; padding:10px 0 2px; }
   .rank-row { display:flex; justify-content:space-between; align-items:center; background:#0d1117; border-radius:8px; padding:10px 14px; }
   .rank-team { font-size:12px; font-weight:bold; max-width:80px; word-break:keep-all; }
   .rank-num { font-size:22px; font-weight:bold; color:#58a6ff; font-family:monospace; }
   .rank-label { font-size:10px; color:#8b949e; text-align:center; }
   .rank-section-title { font-size:10px; color:#8b949e; margin-bottom:6px; }
   .card.expanded { border-color:#58a6ff55; }
+  .prob-bar { margin-top:10px; }
+  .prob-labels { display:flex; justify-content:space-between; font-size:11px; color:#8b949e; margin-bottom:4px; }
+  .prob-track { display:flex; height:8px; border-radius:4px; overflow:hidden; }
+  .prob-h { background:#3fb950; }
+  .prob-d { background:#484f58; }
+  .prob-a { background:#f85149; }
+  .prob-nums { display:flex; justify-content:space-between; font-size:12px; font-weight:bold; font-family:monospace; margin-top:4px; }
+  .prob-hn { color:#3fb950; }
+  .prob-dn { color:#8b949e; text-align:center; flex:1; }
+  .prob-an { color:#f85149; }
 </style>
 </head>
 <body>
@@ -288,6 +298,38 @@ const TEAM_MAP = {
 
 const KO = ["32강","16강","8강","4강","결승"];
 let curFilter = "";
+
+// ─── 순수 Elo 레이팅 (eloratings.net, 2026.06.11 기준) ────
+const ELO = {
+  '스페인':2157,'아르헨티나':2115,'프랑스':2063,'잉글랜드':2024,
+  '브라질':1991,'포르투갈':1989,'콜롬비아':1982,'네덜란드':1948,
+  '에콰도르':1938,'독일':1932,'노르웨이':1914,'크로아티아':1912,
+  '스위스':1900,'우루과이':1890,'터키':1885,'일본':1882,
+  '세네갈':1878,'멕시코':1875,'벨기에':1870,'모로코':1870,
+  '오스트리아':1820,'스웨덴':1800,'스코틀랜드':1790,'호주':1785,
+  '캐나다':1775,'한국':1758,'체코':1740,'파라과이':1730,
+  '미국':1720,'알제리':1720,'이란':1715,'보스니아':1700,
+  '이집트':1680,'튀니지':1630,'이라크':1620,'가나':1600,
+  '사우디':1600,'DR콩고':1580,'파나마':1570,'우즈베키스탄':1540,
+  '카보베르데':1530,'카타르':1530,'남아공':1517,'요르단':1510,
+  '아이티':1480,'뉴질랜드':1430,'퀴라소':1410,
+};
+
+function calcWinProb(homeKor, awayKor, isKnockout) {
+  const ra = ELO[homeKor] || 1600;
+  const rb = ELO[awayKor] || 1600;
+  const pHome = 1 / (1 + Math.pow(10, (rb - ra) / 600));
+  if (isKnockout) {
+    const pH = Math.round(pHome * 100);
+    return { home: pH, draw: 0, away: 100 - pH };
+  }
+  const diff  = Math.abs(ra - rb);
+  const pDraw = Math.max(0.12, 0.30 - 0.0005 * diff);
+  const pH = Math.round(pHome * (1 - pDraw) * 100);
+  const pD = Math.round(pDraw * 100);
+  const pA = 100 - pH - pD;
+  return { home: pH, draw: pD, away: pA };
+}
 
 function parseKST(d, t) {
   const p = d.split("-"), q = t.split(":");
@@ -587,6 +629,32 @@ function render() {
     const card = document.createElement("div");
     card.className = "card" + (isLive ? " live" : past && !isLive ? " past" : "");
     card.dataset.id = m.id;
+    var detailHtml = '';
+    if (m.away) {
+      var hk = m.home.replace('🇰🇷 ',''), ak = m.away.replace('🇰🇷 ','');
+      var p = calcWinProb(hk, ak, isKO);
+      detailHtml =
+        '<div class="card-detail" id="detail-' + m.id + '">' +
+          '<div class="rank-section-title">🏅 FIFA 랭킹</div>' +
+          '<div class="rank-row">' +
+            '<div><div class="rank-team">' + m.home + '</div><div class="rank-label">홈</div></div>' +
+            '<div><div class="rank-num">' + (rankingsCache[hk]||'?') + '</div><div class="rank-label">위</div></div>' +
+            '<div style="color:#484f58;font-size:11px;">vs</div>' +
+            '<div><div class="rank-num">' + (rankingsCache[ak]||'?') + '</div><div class="rank-label">위</div></div>' +
+            '<div><div class="rank-team" style="text-align:right">' + m.away + '</div><div class="rank-label">어웨이</div></div>' +
+          '</div>' +
+          '<div class="prob-bar">' +
+            '<div class="prob-labels"><span>' + m.home + '</span>' + (p.draw ? '<span>무</span>' : '') + '<span>' + m.away + '</span></div>' +
+            '<div class="prob-track">' +
+              '<div class="prob-h" style="width:' + p.home + '%"></div>' +
+              (p.draw ? '<div class="prob-d" style="width:' + p.draw + '%"></div>' : '') +
+              '<div class="prob-a" style="width:' + p.away + '%"></div>' +
+            '</div>' +
+            '<div class="prob-nums"><span class="prob-hn">' + p.home + '%</span>' + (p.draw ? '<span class="prob-dn">' + p.draw + '%</span>' : '') + '<span class="prob-an">' + p.away + '%</span></div>' +
+          '</div>' +
+        '</div>';
+    }
+
     card.innerHTML =
       '<div class="card-top">' +
         '<div class="teams">' + title + '</div>' +
@@ -602,16 +670,7 @@ function render() {
         '<span class="venue">📍 ' + m.v + '</span>' +
         '<span class="countdown" id="cd-' + m.id + '"></span>' +
       '</div>' +
-      (m.away ? '<div class="card-detail" id="detail-' + m.id + '">' +
-        '<div class="rank-section-title">🏅 FIFA 랭킹</div>' +
-        '<div class="rank-row">' +
-          '<div><div class="rank-team">' + m.home + '</div><div class="rank-label">홈</div></div>' +
-          '<div><div class="rank-num">' + (rankingsCache[m.home.replace('🇰🇷 ','')] || '?') + '</div><div class="rank-label">위</div></div>' +
-          '<div style="color:#484f58;font-size:11px;">vs</div>' +
-          '<div><div class="rank-num">' + (rankingsCache[m.away.replace('🇰🇷 ','')] || '?') + '</div><div class="rank-label">위</div></div>' +
-          '<div><div class="rank-team" style="text-align:right">' + m.away + '</div><div class="rank-label">어웨이</div></div>' +
-        '</div>' +
-      '</div>' : '');
+      detailHtml;
     container.appendChild(card);
     if (m.away) {
       card.addEventListener('click', function(){
