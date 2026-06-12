@@ -96,7 +96,7 @@
 <header style="position:relative">
   <button id="winprob-btn" onclick="toggleWinProb(this)" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:#161b22;border:1px solid #30363d;border-radius:20px;padding:5px 10px;font-size:11px;color:#8b949e;cursor:pointer;white-space:nowrap">🏆 우승확률</button>
   <h1>⚽ 2026 FIFA 월드컵</h1>
-  <p>전체 104경기 · KST 기준 <button class="refresh-btn" onclick="fetchScores(true)">🔄 새로고침</button></p>
+  <p>전체 104경기 · KST 기준 <button class="refresh-btn" onclick="fetchScores(true);startRefreshTimer()">🔄 새로고침</button></p>
 </header>
 
 <div class="toolbar" id="filters">
@@ -1020,7 +1020,9 @@ function filterWinProb() {
   }
 }
 
-// ─── 자동 새로고침 (경기중 30초, 평시 5분) ───────────────
+// ─── 스마트 새로고침 (탭 가시성 + 경기 상태 연동) ──────────
+let refreshTimer = null;
+
 function isAnyMatchLive() {
   const now = new Date();
   return M.some(function(m) {
@@ -1031,19 +1033,36 @@ function isAnyMatchLive() {
   });
 }
 
-function scheduleNextRefresh() {
-  const interval = isAnyMatchLive() ? 15000 : 5 * 60 * 1000;
-  setTimeout(function() {
-    fetchScores(false);
-    scheduleNextRefresh();
-  }, interval);
+function getRefreshInterval() {
+  return isAnyMatchLive() ? 30000 : 6 * 60 * 1000;
 }
+
+function startRefreshTimer() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(function() {
+    fetchScores(false);
+    startRefreshTimer();
+  }, getRefreshInterval());
+}
+
+function stopRefreshTimer() {
+  if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
+}
+
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    stopRefreshTimer();
+  } else {
+    fetchScores(false);
+    startRefreshTimer();
+  }
+});
 render();
 setInterval(tick, 1000);
 tick();
 fetchScores(false);
 fetchRankings();
-scheduleNextRefresh();
+startRefreshTimer();
 </script>
 </body>
 </html>
