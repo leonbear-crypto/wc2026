@@ -422,19 +422,11 @@ async function fetchScores(manual) {
 
   // 오늘 ± 2일 UTC 날짜 조회 (KST 새벽 경기는 UTC 전날이므로 여유분 포함)
   const dates = new Set();
-  for (let offset = -2; offset <= 1; offset++) {
+  const range = manual ? 7 : 2;
+  for (let offset = -range; offset <= 1; offset++) {
     const d = new Date(now);
     d.setUTCDate(d.getUTCDate() + offset);
     dates.add(d.toISOString().slice(0,10).replace(/-/g,''));
-  }
-  // 수동 새로고침이면 전체 날짜 조회 (KST 날짜 기준 UTC 전날도 포함)
-  if (manual) {
-    M.forEach(function(m) {
-      const kstMidnight = new Date(m.d + 'T00:00:00+09:00');
-      const prevUtc = new Date(kstMidnight.getTime() - 24*3600*1000);
-      dates.add(prevUtc.toISOString().slice(0,10).replace(/-/g,''));
-      dates.add(m.d.replace(/-/g,''));
-    });
   }
 
   let updated = 0;
@@ -514,8 +506,8 @@ async function fetchScores(manual) {
   // 토너먼트 승자 → 다음 라운드 업데이트
   propagateWinners();
 
-  // 새 결과 있으면 우승확률 캐시 항상 무효화
-  winProbCache = null;
+  // 새 결과 있을 때만 우승확률 캐시 무효화
+  if (updated > 0) winProbCache = null;
 
   if (curFilter === 'WINPROB') {
     filterWinProb();
@@ -662,15 +654,15 @@ function filter(val, el) {
 
 function render() {
   const container = document.getElementById("list");
-  container.innerHTML = "";
   const now = new Date();
+  const frag = document.createDocumentFragment();
   let lastDate = null;
 
   // 조별 필터일 때 순위표 먼저 표시
   if (curFilter && curFilter.startsWith('그룹')) {
     const tbl = document.createElement('div');
     tbl.innerHTML = buildGroupTable(curFilter);
-    container.appendChild(tbl.firstChild);
+    frag.appendChild(tbl.firstChild);
   }
 
   const filtered = M.filter(function(m) {
@@ -692,7 +684,7 @@ function render() {
       const hdr = document.createElement("div");
       hdr.className = "date-header" + (isKO ? " knockout" : "");
       hdr.textContent = (isKO ? "🏆 " : "📅 ") + dateLabel;
-      container.appendChild(hdr);
+      frag.appendChild(hdr);
       lastDate = dateLabel;
     }
 
@@ -700,7 +692,6 @@ function render() {
     const title   = m.away ? m.home + " vs " + m.away : m.home;
     const badgeClass = isKO ? "badge ko" : "badge group";
 
-    // 점수 박스
     let scoreHtml = '';
     if (m.score) {
       const isLiveScore = isLive;
@@ -716,6 +707,9 @@ function render() {
     const card = document.createElement("div");
     card.className = "card" + (isLive ? " live" : past && !isLive ? " past" : "");
     card.dataset.id = m.id;
+    card.dataset.score = m.score || '';
+    card.dataset.status = m.statusLabel || '';
+
     var detailHtml = '';
     if (m.away) {
       var hk = m.home.replace('🇰🇷 ',''), ak = m.away.replace('🇰🇷 ','');
@@ -759,23 +753,31 @@ function render() {
         '<span class="countdown" id="cd-' + m.id + '"></span>' +
       '</div>' +
       detailHtml;
-    container.appendChild(card);
-    if (m.away) {
-      card.addEventListener('click', function(){
-        var detail = document.getElementById('detail-' + m.id);
-        if (!detail) return;
-        var isOpen = detail.classList.contains('open');
-        // 다른 열린 카드 닫기
-        document.querySelectorAll('.card-detail.open').forEach(function(d){ d.classList.remove('open'); });
-        document.querySelectorAll('.card.expanded').forEach(function(c){ c.classList.remove('expanded'); });
-        if (!isOpen) { detail.classList.add('open'); card.classList.add('expanded'); }
-      });
-    }
+
+    frag.appendChild(card);
+    if (m.away) attachCardEvents(card, m);
   });
 
   if (filtered.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:#8b949e;font-size:13px">해당 경기 없음</div>';
+    const empty = document.createElement('div');
+    empty.style.cssText = 'text-align:center;padding:40px;color:#8b949e;font-size:13px';
+    empty.textContent = '해당 경기 없음';
+    frag.appendChild(empty);
   }
+
+  container.innerHTML = '';
+  container.appendChild(frag);
+}
+
+function attachCardEvents(card, m) {
+  card.addEventListener('click', function(){
+    var detail = document.getElementById('detail-' + m.id);
+    if (!detail) return;
+    var isOpen = detail.classList.contains('open');
+    document.querySelectorAll('.card-detail.open').forEach(function(d){ d.classList.remove('open'); });
+    document.querySelectorAll('.card.expanded').forEach(function(c){ c.classList.remove('expanded'); });
+    if (!isOpen) { detail.classList.add('open'); card.classList.add('expanded'); }
+  });
 }
 
 function setSyncStatus(msg) {
@@ -1041,6 +1043,8 @@ function toggleWinProb(btn) {
 }
 
 function filterWinProb() {
+  document.getElementById('list').scrollTop = 0;
+  window.scrollTo(0, 0);
   var container = document.getElementById('list');
   if (winProbCache) {
     renderWinProbTab(winProbCache.counts, winProbCache.total, winProbCache.total, winProbCache.teams);
