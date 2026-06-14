@@ -429,6 +429,18 @@ async function fetchScores(manual) {
     dates.add(d.toISOString().slice(0,10).replace(/-/g,''));
   }
 
+  // 점수 없는 과거 경기는 항상 추가 조회
+  // (ESPN scoreboard 날짜는 ET 기준이라 KST 새벽 경기가 전날로 분류될 수 있음)
+  M.forEach(function(m) {
+    if (!m.away || m.score) return;
+    const dt = parseKST(m.d, m.t);
+    if (dt >= now) return;
+    const kstMidnight = new Date(m.d + 'T00:00:00+09:00');
+    dates.add(kstMidnight.toISOString().slice(0,10).replace(/-/g,''));
+    dates.add(new Date(kstMidnight.getTime() - 24*3600*1000).toISOString().slice(0,10).replace(/-/g,''));
+    dates.add(new Date(kstMidnight.getTime() - 48*3600*1000).toISOString().slice(0,10).replace(/-/g,''));
+  });
+
   let updated = 0;
   for (const dateStr of dates) {
     try {
@@ -500,6 +512,7 @@ async function fetchScores(manual) {
       });
     } catch(e) {
       console.warn('ESPN fetch error:', dateStr, e);
+      setSyncStatus('⚠️ 연결 오류: ' + e.message);
     }
   }
 
