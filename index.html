@@ -109,7 +109,7 @@
   .fav-star { font-size:14px; padding:2px 4px; cursor:pointer; opacity:.35; transition: opacity .15s, transform .15s; }
   .fav-star.active { opacity:1; }
   .fav-star:active { transform: scale(1.3); }
-  #fav-chip.has-fav { border-color: rgba(211,170,60,.4); color:#d3aa3c; }
+  #fav-btn.has-fav { border-color: rgba(211,170,60,.6); }
   .prob-bar { margin-top:10px; }
   .prob-labels { display:flex; justify-content:space-between; font-size:11px; color:#4a6080; margin-bottom:4px; }
   .prob-track { display:flex; height:6px; border-radius:3px; overflow:hidden; }
@@ -126,6 +126,7 @@
 
 <header style="position:relative">
   <button id="winprob-btn" onclick="toggleWinProb(this)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(211,170,60,.12);border:1px solid rgba(211,170,60,.35);border-radius:20px;padding:8px 12px;font-size:11px;color:#d3aa3c;cursor:pointer;white-space:nowrap;z-index:2;min-width:72px;min-height:36px;-webkit-tap-highlight-color:transparent;touch-action:manipulation">🏆 우승확률</button>
+  <button id="fav-btn" onclick="toggleFavTab(this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(211,170,60,.12);border:1px solid rgba(211,170,60,.35);border-radius:20px;padding:8px 12px;font-size:11px;color:#d3aa3c;cursor:pointer;white-space:nowrap;z-index:2;min-width:72px;min-height:36px;-webkit-tap-highlight-color:transparent;touch-action:manipulation">⭐ 즐겨찾기</button>
   <h1>⚽ <span>2026 FIFA</span> 월드컵</h1>
   <p>전체 104경기 · KST 기준 <button class="refresh-btn" onclick="fetchScores(true);startRefreshTimer()">🔄 새로고침</button></p>
 </header>
@@ -134,7 +135,6 @@
   <div class="chip active" onclick="filter('', this)">전체</div>
   <div class="chip" onclick="filter('upcoming', this)">예정 경기</div>
   <div class="chip" id="live-chip" onclick="filter('live', this)">🔴 진행중</div>
-  <div class="chip" id="fav-chip" onclick="filter('favorites', this)">⭐ 즐겨찾기</div>
   <div class="chip" onclick="filter('그룹A', this)">A조</div>
   <div class="chip" onclick="filter('그룹B', this)">B조</div>
   <div class="chip" onclick="filter('그룹C', this)">C조</div>
@@ -686,6 +686,11 @@ function filter(val, el) {
   curFilter = val;
   document.querySelectorAll(".chip").forEach(function(c){ c.classList.remove("active"); });
   el.classList.add("active");
+  // 헤더 버튼(우승확률/즐겨찾기) 비활성 스타일로 리셋
+  ['winprob-btn','fav-btn'].forEach(function(id){
+    var b = document.getElementById(id);
+    if (b) { b.style.background='rgba(211,170,60,.12)'; b.style.borderColor='rgba(211,170,60,.35)'; b.style.color='#d3aa3c'; }
+  });
   if (val === 'WINPROB') { filterWinProb(); return; }
   render();
 }
@@ -720,8 +725,8 @@ function render() {
   }
 
   // 즐겨찾기 탭 표시 갱신
-  const favChip = document.getElementById('fav-chip');
-  if (favChip) favChip.classList.toggle('has-fav', favorites.size > 0);
+  const favBtn = document.getElementById('fav-btn');
+  if (favBtn) favBtn.classList.toggle('has-fav', favorites.size > 0);
 
   const filtered = M.filter(function(m) {
     if (curFilter === "upcoming") return parseKST(m.d, m.t) > now;
@@ -1151,6 +1156,31 @@ function renderWinProbTab(counts, done, total, allTeams) {
   container.innerHTML = html;
 }
 
+function toggleFavTab(btn) {
+  var isActive = curFilter === 'favorites';
+  if (isActive) {
+    btn.style.background = 'rgba(211,170,60,.12)';
+    btn.style.borderColor = 'rgba(211,170,60,.35)';
+    btn.style.color = '#d3aa3c';
+    document.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('active'); });
+    document.querySelector('.chip').classList.add('active');
+    curFilter = '';
+  } else {
+    btn.style.background = 'linear-gradient(135deg,#d3aa3c,#f0cc5a)';
+    btn.style.borderColor = 'transparent';
+    btn.style.color = '#07112b';
+    document.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('active'); });
+    var winBtn = document.getElementById('winprob-btn');
+    winBtn.style.background = 'rgba(211,170,60,.12)';
+    winBtn.style.borderColor = 'rgba(211,170,60,.35)';
+    winBtn.style.color = '#d3aa3c';
+    curFilter = 'favorites';
+  }
+  document.getElementById('list').scrollTop = 0;
+  window.scrollTo(0, 0);
+  render();
+}
+
 function toggleWinProb(btn) {
   var isActive = curFilter === 'WINPROB';
   if (isActive) {
@@ -1167,6 +1197,10 @@ function toggleWinProb(btn) {
     btn.style.borderColor = 'transparent';
     btn.style.color = '#07112b';
     document.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('active'); });
+    var favBtn = document.getElementById('fav-btn');
+    favBtn.style.background = 'rgba(211,170,60,.12)';
+    favBtn.style.borderColor = 'rgba(211,170,60,.35)';
+    favBtn.style.color = '#d3aa3c';
     curFilter = 'WINPROB';
     filterWinProb();
   }
