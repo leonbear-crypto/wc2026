@@ -29,6 +29,10 @@
   .toolbar::-webkit-scrollbar { display: none; }
   .chip { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.07); border-radius: 20px; padding: 5px 12px; font-size: 12px; color: #4a6080; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
   .chip.active { background: linear-gradient(135deg,#d3aa3c,#f0cc5a); border-color: transparent; color: #07112b; font-weight: 700; }
+  #live-chip.has-live { border-color: rgba(248,81,73,.5); color: #f85149; }
+  #live-chip.has-live::before { content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:#f85149; margin-right:4px; animation: pulse 1.5s infinite; }
+  #live-chip.has-live.active { background: linear-gradient(135deg,#f85149,#ff8a80); color:#07112b; }
+  #live-chip.has-live.active::before { background:#07112b; }
 
   .date-header { background: rgba(211,170,60,.07); padding: 8px 12px; font-size: 12px; font-weight: bold; color: #d3aa3c; border-left: 2px solid #d3aa3c; margin: 8px 10px 4px; border-radius: 0 6px 6px 0; }
   .date-header.knockout { border-left-color: #f0883e; color: #f0883e; background: rgba(240,136,62,.07); }
@@ -118,6 +122,7 @@
 <div class="toolbar" id="filters">
   <div class="chip active" onclick="filter('', this)">전체</div>
   <div class="chip" onclick="filter('upcoming', this)">예정 경기</div>
+  <div class="chip" id="live-chip" onclick="filter('live', this)">🔴 진행중</div>
   <div class="chip" onclick="filter('그룹A', this)">A조</div>
   <div class="chip" onclick="filter('그룹B', this)">B조</div>
   <div class="chip" onclick="filter('그룹C', this)">C조</div>
@@ -678,8 +683,25 @@ function render() {
     frag.appendChild(tbl.firstChild);
   }
 
+  function isMatchLive(m) {
+    if (!m.away) return false;
+    const dt = parseKST(m.d, m.t);
+    const past = dt < now;
+    const minElapsed = (now - dt) / 60000;
+    const estimatedLive = past && minElapsed < 120 && !m.score;
+    return (m.statusLabel && m.statusLabel !== 'FT') || estimatedLive;
+  }
+
+  // 진행중 탭 표시 갱신
+  const liveChip = document.getElementById('live-chip');
+  if (liveChip) {
+    const anyLive = M.some(isMatchLive);
+    liveChip.classList.toggle('has-live', anyLive);
+  }
+
   const filtered = M.filter(function(m) {
     if (curFilter === "upcoming") return parseKST(m.d, m.t) > now;
+    if (curFilter === "live")     return isMatchLive(m);
     if (curFilter)                return m.g === curFilter;
     return true;
   });
@@ -774,7 +796,7 @@ function render() {
   if (filtered.length === 0) {
     const empty = document.createElement('div');
     empty.style.cssText = 'text-align:center;padding:40px;color:#8b949e;font-size:13px';
-    empty.textContent = '해당 경기 없음';
+    empty.textContent = curFilter === 'live' ? '⚽ 현재 진행중인 경기가 없습니다' : '해당 경기 없음';
     frag.appendChild(empty);
   }
 
