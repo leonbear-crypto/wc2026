@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>⚽ 2026 월드컵 일정</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#07112b">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WC2026">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: #07112b; color: #e8edf5; min-height: 100vh; }
@@ -84,9 +91,6 @@
   #clock { font-family: monospace; color: #d3aa3c; }
   #sync-status { font-size: 10px; color: #2e4a6a; }
 
-  .korea-tag { font-size: 10px; background: rgba(211,170,60,.15); color: #d3aa3c; border-radius: 4px; padding: 1px 5px; }
-  .teams .kor { color: #d3aa3c; font-weight: 900; }
-
   .refresh-btn { background: rgba(255,255,255,.06); border: 1px solid rgba(211,170,60,.25); border-radius: 6px; padding: 3px 8px; font-size: 10px; color: #d3aa3c; cursor: pointer; margin-left: 6px; }
   .refresh-btn:active { background: rgba(211,170,60,.15); }
 
@@ -99,6 +103,13 @@
   .rank-label { font-size:10px; color:#4a6080; text-align:center; }
   .rank-section-title { font-size:10px; color:#4a6080; margin-bottom:6px; }
   .card.expanded { border-color:rgba(211,170,60,.4); }
+  .card.clickable { cursor: pointer; }
+  .chevron { display:inline-block; margin-left:4px; font-size:9px; color:#2e4a6a; transition: transform .25s; }
+  .card.expanded .chevron { transform: rotate(180deg); color:#d3aa3c; }
+  .fav-star { font-size:14px; padding:2px 4px; cursor:pointer; opacity:.35; transition: opacity .15s, transform .15s; }
+  .fav-star.active { opacity:1; }
+  .fav-star:active { transform: scale(1.3); }
+  #fav-chip.has-fav { border-color: rgba(211,170,60,.4); color:#d3aa3c; }
   .prob-bar { margin-top:10px; }
   .prob-labels { display:flex; justify-content:space-between; font-size:11px; color:#4a6080; margin-bottom:4px; }
   .prob-track { display:flex; height:6px; border-radius:3px; overflow:hidden; }
@@ -123,6 +134,7 @@
   <div class="chip active" onclick="filter('', this)">전체</div>
   <div class="chip" onclick="filter('upcoming', this)">예정 경기</div>
   <div class="chip" id="live-chip" onclick="filter('live', this)">🔴 진행중</div>
+  <div class="chip" id="fav-chip" onclick="filter('favorites', this)">⭐ 즐겨찾기</div>
   <div class="chip" onclick="filter('그룹A', this)">A조</div>
   <div class="chip" onclick="filter('그룹B', this)">B조</div>
   <div class="chip" onclick="filter('그룹C', this)">C조</div>
@@ -323,21 +335,34 @@ const TEAM_MAP = {
   'Bosnia & Herzegovina': '보스니아',
   "Côte d'Ivoire": '코트디부아르',
   "Cote d'Ivoire": '코트디부아르',
-  'Ivory Coast': '코트디부아르',
   'Congo': 'DR콩고',
   'Iran (Islamic Republic of)': '이란',
   'IR Iran': '이란',
   'Korea DPR': '한국',
-  'Saudi Arabia': '사우디',
   'KSA': '사우디',
-  'New Zealand': '뉴질랜드',
-  'Curacao': '퀴라소',
-  'Cabo Verde': '카보베르데',
-  'Uzbekistan': '우즈베키스탄',
 };
 
 const KO = ["32강","16강","8강","4강","결승"];
 let curFilter = "";
+let expandedMatchId = null; // 카드 펼침 상태 보존
+
+// ─── 즐겨찾기 (localStorage, 사용자별/기기별 저장) ─────────
+let favorites = new Set();
+try {
+  favorites = new Set(JSON.parse(localStorage.getItem('wc2026_favorites') || '[]'));
+} catch(e) {}
+
+function saveFavorites() {
+  try { localStorage.setItem('wc2026_favorites', JSON.stringify([...favorites])); } catch(e) {}
+}
+
+function toggleFavorite(team, ev) {
+  if (ev) ev.stopPropagation();
+  if (favorites.has(team)) favorites.delete(team);
+  else favorites.add(team);
+  saveFavorites();
+  render();
+}
 
 // ─── 순수 Elo 레이팅 (eloratings.net, 2026.06.11 기준) ────
 const ELO = {
@@ -353,22 +378,6 @@ const ELO = {
   '사우디':1600,'DR콩고':1580,'파나마':1570,'우즈베키스탄':1540,
   '카보베르데':1530,'카타르':1530,'남아공':1517,'요르단':1510,
   '아이티':1480,'뉴질랜드':1430,'퀴라소':1410,'코트디부아르':1820,
-};
-
-// ─── 최근폼 점수 (2026 WC 예선 + 최근 A매치 기반, 0~1) ──
-const FORM = {
-  '스페인':0.88,'아르헨티나':0.85,'프랑스':0.80,'잉글랜드':0.78,
-  '브라질':0.70,'포르투갈':0.82,'콜롬비아':0.75,'네덜란드':0.78,
-  '에콰도르':0.70,'독일':0.78,'노르웨이':0.82,'크로아티아':0.68,
-  '스위스':0.75,'우루과이':0.72,'터키':0.72,'일본':0.85,
-  '세네갈':0.75,'멕시코':0.65,'벨기에':0.70,'모로코':0.80,
-  '오스트리아':0.72,'스웨덴':0.75,'스코틀랜드':0.68,'호주':0.65,
-  '캐나다':0.78,'한국':0.70,'체코':0.65,'파라과이':0.62,
-  '미국':0.65,'알제리':0.68,'이란':0.65,'보스니아':0.62,
-  '이집트':0.65,'튀니지':0.60,'이라크':0.58,'가나':0.60,
-  '사우디':0.58,'DR콩고':0.60,'파나마':0.60,'우즈베키스탄':0.55,
-  '카보베르데':0.62,'카타르':0.55,'남아공':0.55,'요르단':0.52,
-  '아이티':0.50,'뉴질랜드':0.48,'퀴라소':0.45,'코트디부아르':0.82,
 };
 
 // ─── 실시간 Elo (대회 결과로 업데이트, 초기값 = ELO 복사) ──
@@ -525,7 +534,7 @@ async function fetchScores(manual) {
   propagateWinners();
 
   // 새 결과 있을 때만 우승확률 캐시 무효화
-  if (updated > 0) winProbCache = null;
+  if (updated > 0) { winProbCache = null; }
 
   if (curFilter === 'WINPROB') {
     filterWinProb();
@@ -604,6 +613,15 @@ function propagateWinners() {
     dst[destField] = src.winner;
   }
 
+  // 패자 전파 (3·4위전용)
+  function applyLoser(srcId, destMatchId, destField) {
+    const src = M.find(function(x){ return x.id === srcId; });
+    const dst = M.find(function(x){ return x.id === destMatchId; });
+    if (!src || !dst || !src.winner || !src.away) return;
+    const loser = src.winner === src.home ? src.away : src.home;
+    dst[destField] = loser;
+  }
+
   // 16강
   applyWinner(74,'winner',89,'home'); applyWinner(77,'winner',89,'away');
   applyWinner(73,'winner',90,'home'); applyWinner(75,'winner',90,'away');
@@ -623,6 +641,8 @@ function propagateWinners() {
   applyWinner(99,'winner',102,'home');applyWinner(100,'winner',102,'away');
   // 결승
   applyWinner(101,'winner',104,'home');applyWinner(102,'winner',104,'away');
+  // 3·4위전 (4강 패자들)
+  applyLoser(101,103,'home'); applyLoser(102,103,'away');
 }
 
 // ─── 조 순위표 ────────────────────────────────────────────
@@ -699,9 +719,19 @@ function render() {
     liveChip.classList.toggle('has-live', anyLive);
   }
 
+  // 즐겨찾기 탭 표시 갱신
+  const favChip = document.getElementById('fav-chip');
+  if (favChip) favChip.classList.toggle('has-fav', favorites.size > 0);
+
   const filtered = M.filter(function(m) {
     if (curFilter === "upcoming") return parseKST(m.d, m.t) > now;
     if (curFilter === "live")     return isMatchLive(m);
+    if (curFilter === "favorites") {
+      if (!m.away) return false;
+      const hk = m.home.replace('🇰🇷 ','');
+      const ak = m.away.replace('🇰🇷 ','');
+      return favorites.has(hk) || favorites.has(ak);
+    }
     if (curFilter)                return m.g === curFilter;
     return true;
   });
@@ -724,8 +754,21 @@ function render() {
     }
 
     const timeStr = dt.toLocaleTimeString("ko-KR", {hour:"2-digit", minute:"2-digit"});
-    const title   = m.away ? m.home + " vs " + m.away : m.home;
     const badgeClass = isKO ? "badge ko" : "badge group";
+
+    // 팀명에 즐겨찾기 별 추가 (실제 팀명에만; "A조 1위" 같은 placeholder는 제외)
+    function teamLabel(name) {
+      if (!name) return '';
+      const clean = name.replace('🇰🇷 ','');
+      const isPlaceholder = /조\s*\d+위|3위팀|결정전|결승전/.test(clean);
+      if (isPlaceholder) return name;
+      const isFav = favorites.has(clean);
+      return name +
+        '<span class="fav-star' + (isFav ? ' active' : '') + '" onclick="toggleFavorite(\'' + clean + '\',event)">' +
+          (isFav ? '⭐' : '☆') +
+        '</span>';
+    }
+    const title = m.away ? teamLabel(m.home) + " vs " + teamLabel(m.away) : m.home;
 
     let scoreHtml = '';
     if (m.score) {
@@ -740,10 +783,8 @@ function render() {
     }
 
     const card = document.createElement("div");
-    card.className = "card" + (isLive ? " live" : past && !isLive ? " past" : "");
+    card.className = "card" + (isLive ? " live" : past && !isLive ? " past" : "") + (m.away ? " clickable" : "");
     card.dataset.id = m.id;
-    card.dataset.score = m.score || '';
-    card.dataset.status = m.statusLabel || '';
 
     var detailHtml = '';
     if (m.away) {
@@ -786,6 +827,7 @@ function render() {
         '<span class="' + badgeClass + '">' + m.g + '</span>' +
         '<span class="venue">📍 ' + m.v + '</span>' +
         '<span class="countdown" id="cd-' + m.id + '"></span>' +
+        (m.away ? '<span class="chevron">▼</span>' : '') +
       '</div>' +
       detailHtml;
 
@@ -796,12 +838,26 @@ function render() {
   if (filtered.length === 0) {
     const empty = document.createElement('div');
     empty.style.cssText = 'text-align:center;padding:40px;color:#8b949e;font-size:13px';
-    empty.textContent = curFilter === 'live' ? '⚽ 현재 진행중인 경기가 없습니다' : '해당 경기 없음';
+    empty.innerHTML = curFilter === 'live' ? '⚽ 현재 진행중인 경기가 없습니다'
+      : curFilter === 'favorites' ? '⭐ 즐겨찾기한 팀이 없습니다<br>팀 이름 옆 ☆를 눌러 추가하세요'
+      : '해당 경기 없음';
     frag.appendChild(empty);
   }
 
   container.innerHTML = '';
   container.appendChild(frag);
+
+  // 펼침 상태 복원 (30초 자동갱신 시 사용자가 보던 카드 유지)
+  if (expandedMatchId !== null) {
+    var card = container.querySelector('.card[data-id="' + expandedMatchId + '"]');
+    var detail = document.getElementById('detail-' + expandedMatchId);
+    if (card && detail) {
+      card.classList.add('expanded');
+      detail.classList.add('open');
+    } else {
+      expandedMatchId = null;
+    }
+  }
 }
 
 function attachCardEvents(card, m) {
@@ -811,7 +867,12 @@ function attachCardEvents(card, m) {
     var isOpen = detail.classList.contains('open');
     document.querySelectorAll('.card-detail.open').forEach(function(d){ d.classList.remove('open'); });
     document.querySelectorAll('.card.expanded').forEach(function(c){ c.classList.remove('expanded'); });
-    if (!isOpen) { detail.classList.add('open'); card.classList.add('expanded'); }
+    if (!isOpen) {
+      detail.classList.add('open'); card.classList.add('expanded');
+      expandedMatchId = m.id;
+    } else {
+      expandedMatchId = null;
+    }
   });
 }
 
@@ -913,7 +974,7 @@ function simKOMatch(h, a) {
 
 function simGroupStage(groupTeams) {
   var allThirds = [];
-  var qualifiers = [];
+  var groupResult = {}; // {A:{first,second}, B:{...}, ...}
 
   Object.keys(groupTeams).forEach(function(grp) {
     var teams = groupTeams[grp];
@@ -947,38 +1008,72 @@ function simGroupStage(groupTeams) {
       return gf[y] - gf[x];
     });
 
-    qualifiers.push(sorted[0]);
-    qualifiers.push(sorted[1]);
+    // grp 예: "그룹A" → "A"
+    var letter = grp.replace('그룹','');
+    groupResult[letter] = { first: sorted[0], second: sorted[1] };
     allThirds.push({ team: sorted[2], pts: pts[sorted[2]], gd: gd[sorted[2]], gf: gf[sorted[2]] });
   });
 
-  // 최고 8개 3위팀
+  // 최고 8개 3위팀 (조 성적 기준)
   allThirds.sort(function(a, b) {
     if (b.pts !== a.pts) return b.pts - a.pts;
     if (b.gd !== a.gd) return b.gd - a.gd;
     return b.gf - a.gf;
   });
-  allThirds.slice(0, 8).forEach(function(x) { qualifiers.push(x.team); });
+  var thirds = allThirds.slice(0, 8).map(function(x){ return x.team; });
 
-  return qualifiers; // 32팀
+  return { groupResult: groupResult, thirds: thirds };
 }
 
-function simKnockout(teams32) {
-  // 종합점수 기준 시드 배정 → 1vs32, 2vs31... 방식 브라켓
-  var sorted = teams32.slice().sort(function(a, b) {
-    return compositeScore(b) - compositeScore(a);
+// ─── 실제 32강 대진표 (id 73~88 기준, index 0~15) ─────────
+// 'X1'/'X2' = X조 1위/2위, '3rd' = 3위팀 슬롯 (8개)
+var R32_STRUCTURE = [
+  ['A2','B2'], ['E1','3rd'], ['F1','C2'], ['C1','F2'],
+  ['I1','3rd'], ['E2','I2'], ['A1','3rd'], ['L1','3rd'],
+  ['D1','3rd'], ['G1','3rd'], ['K2','L2'], ['H1','J2'],
+  ['B1','3rd'], ['J1','H2'], ['K1','3rd'], ['D2','G2'],
+];
+// R32 결과(0~15) → R16 매치(0~7)
+var R16_PAIRING = [[1,4],[0,2],[3,5],[6,7],[10,11],[8,9],[13,15],[12,14]];
+// R16 결과(0~7) → 8강(0~3)
+var QF_PAIRING  = [[0,1],[4,5],[2,3],[6,7]];
+// 8강 결과(0~3) → 4강(0~1)
+var SF_PAIRING  = [[0,1],[2,3]];
+
+function simKnockout(groupResult, thirds) {
+  // 3위팀 8명을 종합점수 순으로 '3rd' 슬롯에 배정 (고정 순서)
+  var thirdsSorted = thirds.slice().sort(function(a,b){ return compositeScore(b) - compositeScore(a); });
+  var thirdIdx = 0;
+
+  function resolveSlot(slot) {
+    if (slot === '3rd') return thirdsSorted[thirdIdx++];
+    var grp = slot[0], pos = slot[1];
+    return pos === '1' ? groupResult[grp].first : groupResult[grp].second;
+  }
+
+  // 32강
+  var r32Winners = R32_STRUCTURE.map(function(pair) {
+    var h = resolveSlot(pair[0]), a = resolveSlot(pair[1]);
+    return simKOMatch(h, a);
   });
 
-  var curr = sorted;
-  while (curr.length > 1) {
-    var next = [];
-    var half = curr.length / 2;
-    for (var i = 0; i < half; i++) {
-      next.push(simKOMatch(curr[i], curr[curr.length - 1 - i]));
-    }
-    curr = next;
-  }
-  return curr[0];
+  // 16강
+  var r16Winners = R16_PAIRING.map(function(p) {
+    return simKOMatch(r32Winners[p[0]], r32Winners[p[1]]);
+  });
+
+  // 8강
+  var qfWinners = QF_PAIRING.map(function(p) {
+    return simKOMatch(r16Winners[p[0]], r16Winners[p[1]]);
+  });
+
+  // 4강
+  var sfWinners = SF_PAIRING.map(function(p) {
+    return simKOMatch(qfWinners[p[0]], qfWinners[p[1]]);
+  });
+
+  // 결승
+  return simKOMatch(sfWinners[0], sfWinners[1]);
 }
 
 async function computeWinProbs() {
@@ -993,8 +1088,8 @@ async function computeWinProbs() {
 
   for (var done = 0; done < N; done += CHUNK) {
     for (var i = 0; i < CHUNK && done + i < N; i++) {
-      var qualifiers = simGroupStage(groupTeams);
-      var winner = simKnockout(qualifiers);
+      var result = simGroupStage(groupTeams);
+      var winner = simKnockout(result.groupResult, result.thirds);
       counts[winner] = (counts[winner] || 0) + 1;
     }
     await new Promise(function(r) { setTimeout(r, 0); });
