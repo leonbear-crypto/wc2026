@@ -739,6 +739,8 @@ function render() {
     }
     if (curFilter)                return m.g === curFilter;
     return true;
+  }).sort(function(a, b) {
+    return parseKST(a.d, a.t) - parseKST(b.d, b.t);
   });
 
   filtered.forEach(function(m) {
