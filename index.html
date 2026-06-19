@@ -133,6 +133,7 @@
 
 <div class="toolbar" id="filters">
   <div class="chip active" onclick="filter('', this)">전체</div>
+  <div class="chip" onclick="filter('today', this)">📅 오늘</div>
   <div class="chip" onclick="filter('upcoming', this)">예정 경기</div>
   <div class="chip" id="live-chip" onclick="filter('live', this)">🔴 진행중</div>
   <div class="chip" onclick="filter('그룹A', this)">A조</div>
@@ -728,7 +729,10 @@ function render() {
   const favBtn = document.getElementById('fav-btn');
   if (favBtn) favBtn.classList.toggle('has-fav', favorites.size > 0);
 
+  const todayKST = new Date(now.getTime() + 9*3600*1000).toISOString().slice(0,10);
+
   const filtered = M.filter(function(m) {
+    if (curFilter === "today")    return m.d === todayKST;
     if (curFilter === "upcoming") return parseKST(m.d, m.t) > now;
     if (curFilter === "live")     return isMatchLive(m);
     if (curFilter === "favorites") {
@@ -846,6 +850,7 @@ function render() {
     const empty = document.createElement('div');
     empty.style.cssText = 'text-align:center;padding:40px;color:#8b949e;font-size:13px';
     empty.innerHTML = curFilter === 'live' ? '⚽ 현재 진행중인 경기가 없습니다'
+      : curFilter === 'today' ? '📅 오늘 예정된 경기가 없습니다'
       : curFilter === 'favorites' ? '⭐ 즐겨찾기한 팀이 없습니다<br>팀 이름 옆 ☆를 눌러 추가하세요'
       : '해당 경기 없음';
     frag.appendChild(empty);
