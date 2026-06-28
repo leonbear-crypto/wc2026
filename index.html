@@ -132,22 +132,10 @@
 </header>
 
 <div class="toolbar" id="filters">
-  <div class="chip active" onclick="filter('', this)">전체</div>
-  <div class="chip" onclick="filter('today', this)">📅 오늘</div>
+  <div class="chip active" onclick="filter('today', this)">📅 오늘</div>
   <div class="chip" onclick="filter('upcoming', this)">예정 경기</div>
   <div class="chip" id="live-chip" onclick="filter('live', this)">🔴 진행중</div>
-  <div class="chip" onclick="filter('그룹A', this)">A조</div>
-  <div class="chip" onclick="filter('그룹B', this)">B조</div>
-  <div class="chip" onclick="filter('그룹C', this)">C조</div>
-  <div class="chip" onclick="filter('그룹D', this)">D조</div>
-  <div class="chip" onclick="filter('그룹E', this)">E조</div>
-  <div class="chip" onclick="filter('그룹F', this)">F조</div>
-  <div class="chip" onclick="filter('그룹G', this)">G조</div>
-  <div class="chip" onclick="filter('그룹H', this)">H조</div>
-  <div class="chip" onclick="filter('그룹I', this)">I조</div>
-  <div class="chip" onclick="filter('그룹J', this)">J조</div>
-  <div class="chip" onclick="filter('그룹K', this)">K조</div>
-  <div class="chip" onclick="filter('그룹L', this)">L조</div>
+
   <div class="chip" onclick="filter('32강', this)">32강</div>
   <div class="chip" onclick="filter('16강', this)">16강</div>
   <div class="chip" onclick="filter('8강', this)">8강</div>
@@ -344,7 +332,7 @@ const TEAM_MAP = {
 };
 
 const KO = ["32강","16강","8강","4강","결승"];
-let curFilter = "";
+let curFilter = "today";
 let expandedMatchId = null; // 카드 펼침 상태 보존
 
 // ─── 즐겨찾기 (localStorage, 사용자별/기기별 저장) ─────────
@@ -1172,7 +1160,7 @@ function toggleFavTab(btn) {
     btn.style.color = '#d3aa3c';
     document.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('active'); });
     document.querySelector('.chip').classList.add('active');
-    curFilter = '';
+    curFilter = 'today';
   } else {
     btn.style.background = 'linear-gradient(135deg,#d3aa3c,#f0cc5a)';
     btn.style.borderColor = 'transparent';
@@ -1197,8 +1185,8 @@ function toggleWinProb(btn) {
     btn.style.borderColor = 'rgba(211,170,60,.35)';
     btn.style.color = '#d3aa3c';
     document.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('active'); });
-    document.querySelector('.chip').classList.add('active'); // 전체 chip
-    curFilter = '';
+    document.querySelector('.chip').classList.add('active'); // 오늘 chip
+    curFilter = 'today';
     render();
   } else {
     btn.style.background = 'linear-gradient(135deg,#d3aa3c,#f0cc5a)';
