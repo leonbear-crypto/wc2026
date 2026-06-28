@@ -472,14 +472,19 @@ async function fetchScores(manual) {
         // 매칭: 같은 날짜(KST) + 두 팀 중 하나가 일치
         const homeKorClean = homeKor.replace('🇰🇷 ','');
         const awayKorClean = awayKor.replace('🇰🇷 ','');
-        const match = M.find(function(m) {
+        var isPlaceholder = function(n){ return /조\s*\d+위|3위팀|승자|결정전/.test(n); };
+        var match = M.find(function(m) {
           if (m.d.replace(/-/g,'') !== eventDateKST) return false;
           const mHome = m.home.replace('🇰🇷 ','');
           const mAway = m.away ? m.away.replace('🇰🇷 ','') : '';
-          return (mHome === homeKorClean && mAway === awayKorClean) ||
-                 (mHome === awayKorClean && mAway === homeKorClean);
+          if ((mHome===homeKorClean&&mAway===awayKorClean)||(mHome===awayKorClean&&mAway===homeKorClean)) return true;
+          if (isPlaceholder(mHome)&&(mAway===homeKorClean||mAway===awayKorClean)) return true;
+          if (isPlaceholder(mAway)&&(mHome===homeKorClean||mHome===awayKorClean)) return true;
+          return false;
         });
         if (!match) return;
+        if (isPlaceholder(match.home)) match.home = homeKorClean;
+        if (match.away && isPlaceholder(match.away)) match.away = awayKorClean;
 
         const status = comp.status;
         const state  = status.type.state;   // 'pre' | 'in' | 'post'
@@ -594,6 +599,16 @@ function propagateWinners() {
   setSlot(86, 'home', 'J', 1); setSlot(86, 'away', 'H', 2);
   setSlot(87, 'home', 'K', 1);
   setSlot(88, 'home', 'D', 2); setSlot(88, 'away', 'G', 2);
+
+  // ── 3위팀 슬롯 자동 배정 (FIFA Annex C 조합 #73: B,D,E,F,G,I,K,L) ──
+  setSlot(74, 'away', 'D', 3);  // E조1위(독일) vs D조3위(파라과이)
+  setSlot(77, 'away', 'F', 3);  // I조1위(프랑스) vs F조3위(스웨덴)
+  setSlot(79, 'away', 'E', 3);  // A조1위(멕시코) vs E조3위(에콰도르)
+  setSlot(80, 'away', 'I', 3);  // L조1위(잉글랜드) vs I조3위(세네갈)
+  setSlot(81, 'away', 'B', 3);  // D조1위(미국) vs B조3위(보스니아)
+  setSlot(82, 'away', 'K', 3);  // G조1위(벨기에) vs K조3위(오늘 확정)
+  setSlot(85, 'away', 'G', 3);  // B조1위(스위스) vs G조3위(이란)
+  setSlot(87, 'away', 'L', 3);  // K조1위 vs L조3위(가나)
 
   // 토너먼트 승자 전파 (32강 → 16강 → 8강 → 4강 → 결승)
   function applyWinner(srcId, field, destMatchId, destField) {
@@ -756,10 +771,31 @@ function render() {
     const timeStr = dt.toLocaleTimeString("ko-KR", {hour:"2-digit", minute:"2-digit"});
     const badgeClass = isKO ? "badge ko" : "badge group";
 
-    // 팀명에 즐겨찾기 별 추가 (실제 팀명에만; "A조 1위" 같은 placeholder는 제외)
+    // Mxx 승자 → 실제 팀명/라운드 참조로 변환
+    function resolveSlotLabel(name) {
+      if (!name) return name;
+      var mm = name.match(/^M(\d+)\s*승자$/);
+      if (!mm) return name;
+      var srcId = parseInt(mm[1]);
+      var src = M.find(function(x){ return x.id === srcId; });
+      if (!src || !src.away) return name;
+      var h = src.home.replace('🇰🇷 ','');
+      var a = src.away.replace('🇰🇷 ','');
+      // 32강 소스: 실제 팀명 표시
+      if (src.g === '32강') return h + '/' + a + ' 승자';
+      // 16강·8강·4강 소스: 라운드 + 순번 표시
+      var roundMatches = M.filter(function(x){ return x.g === src.g; });
+      var idx = roundMatches.indexOf(src) + 1;
+      return src.g + ' ' + idx + '경기 승자';
+    }
+
+    // 팀명에 즐겨찾기 별 추가 (실제 팀명에만; placeholder는 제외)
     function teamLabel(name) {
       if (!name) return '';
       const clean = name.replace('🇰🇷 ','');
+      // Mxx 승자 → 변환
+      var resolved = resolveSlotLabel(clean);
+      if (resolved !== clean) return resolved;
       const isPlaceholder = /조\s*\d+위|3위팀|결정전|결승전/.test(clean);
       if (isPlaceholder) return name;
       const isFav = favorites.has(clean);
